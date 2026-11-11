@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ishimi 大 - Multi AI & Downloader</title>
+    <style>
+        :root {
+            --bg-sidebar: rgba(26, 17, 38, 0.95); 
+            --text-main: #e2d9f3;     
+            --text-muted: #9b8bb4;    
+            --accent: #a855f7;        
+            --border: rgba(168, 85, 247, 0.4);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        
+        body { 
+            background-color: #0a0612; 
+            color: var(--text-main); 
+            height: 100vh; 
+            overflow: hidden; 
+            display: flex; /* Default Desktop */
+        }
+
+        /* Background Video */
+        #bg-video { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: -2; }
+        .bg-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(18, 12, 28, 0.7); z-index: -1; pointer-events: none; }
+
+        /* ============ SIDEBAR DESKTOP ============ */
+        .sidebar { 
+            width: 260px; background-color: var(--bg-sidebar); backdrop-filter: blur(15px); 
+            display: flex; flex-direction: column; padding: 15px 10px; border-right: 1px solid var(--border); 
+            z-index: 50; transition: transform 0.3s ease; 
+        }
+        
+        .new-chat-btn { 
+            display: flex; align-items: center; justify-content: center; gap: 8px; 
+            padding: 12px; border: 1px solid var(--border); border-radius: 10px; 
+            color: var(--text-main); background: rgba(42, 27, 61, 0.6); cursor: pointer; 
+            font-size: 14px; font-weight: bold; transition: 0.3s; margin-bottom: 15px; 
+            width: 100%;
+        }
+        .new-chat-btn:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+        
+        .sidebar-history { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; }
+        .history-item { padding: 10px; border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: 0.2s; border: 1px solid transparent; }
+        .history-item:hover { background: rgba(42, 27, 61, 0.8); color: var(--text-main); }
+        .history-item.active { background: rgba(168, 85, 247, 0.2); border-color: var(--accent); color: var(--text-main); }
+        
+        .sidebar-footer { padding-top: 15px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted); margin-top: auto; text-align: center; }
+
+        /* ============ HEADER MOBILE ============ */
+        .header-mobile { 
+            display: none; /* Sembunyiin di desktop */
+            align-items: center; padding: 12px 15px; 
+            background: rgba(18, 12, 28, 0.95); backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border); z-index: 40;
+            width: 100%;
+        }
+        .menu-toggle { 
+            background: none; border: none; color: var(--accent); font-size: 28px; 
+            cursor: pointer; margin-right: 15px; padding: 0; line-height: 1;
+        }
+        .header-title { font-weight: bold; color: var(--text-main); font-size: 16px; }
+
+        /* ============ MAIN CHAT ============ */
+        .main-chat { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            position: relative; 
+            z-index: 10; 
+            height: 100vh; 
+            overflow: hidden; 
+        }
+        
+        .chat-container { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; scroll-behavior: smooth; }
+        
+        .message { display: flex; max-width: 800px; margin: 0 auto; width: 100%; gap: 12px; align-items: flex-end; }
+        .message.user { justify-content: flex-end; flex-direction: row-reverse; }
+        .message.ai { justify-content: flex-start; }
+        .avatar-ai { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid var(--accent); box-shadow: 0 0 10px rgba(168, 85, 247, 0.5); flex-shrink: 0; margin-bottom: 5px; }
+        
+        /* Bubble Chat */
+        .bubble { position: relative; padding: 12px 16px; border-radius: 16px; font-size: 15px; line-height: 1.6; max-width: 85%; word-wrap: break-word; white-space: pre-wrap; box-shadow: 0 4px 15px rgba(0,0,0,0.4); overflow: hidden; display: flex; align-items: flex-start; border: 1px solid var(--border); }
+        .bubble::before { content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: -2; background-size: cover; background-position: center; background-attachment: fixed; opacity: 0.8; }
+        .bubble::after { content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: -1; background: rgba(18, 12, 28, 0.65); backdrop-filter: blur(4px); }
+        .bubble.ai::before { background-image: url('https://cdn.phototourl.com/member/2026-11-11-236aba0a-22c1-49fd-878c-9d2c4a9b3c6d.webp'); } 
+        .bubble.user::before { background-image: url('https://cdn.phototourl.com/member/2026-11-11-236aba0a-22c1-49fd-878c-9d2c4a9b3c6d.webp'); } 
+        .bubble.user { color: #fff; border-bottom-right-radius: 4px; }
+        .bubble.ai { color: var(--text-main); border-bottom-left-radius: 4px; }
+        .chat-text { flex: 1; position: relative; z-index: 1; text-shadow: 1px 1px 3px rgba(0,0,0,0.8); }
+        .chat-text a { color: #60a5fa; text-decoration: underline; word-break: break-all; }
+        .chat-text video, .chat-text img { max-width: 100%; border-radius: 8px; margin-top: 8px; border: 1px solid var(--accent); }
+
+        .animate-in { animation: epikFadeIn 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; opacity: 0; transform: translateY(30px) scale(0.95); filter: blur(5px); }
+        @keyframes epikFadeIn { 0% { opacity: 0; transform: translateY(30px) scale(0.95); filter: blur(5px); } 50% { opacity: 1; filter: blur(0px); } 100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0px); } }
+
+        /* Input Area */
+        .input-container { padding: 10px 15px 15px 15px; width: 100%; max-width: 800px; margin: 0 auto; background: linear-gradient(to top, rgba(10, 6, 18, 1) 60%, transparent); }
+        
+        .tools-bar { display: flex; gap: 8px; margin-bottom: 10px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none; }
+        .tools-bar::-webkit-scrollbar { display: none; }
+        
+        .tool-btn { 
+            background: rgba(36, 26, 51, 0.8); color: var(--text-main); border: 1px solid var(--border); 
+            padding: 8px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; white-space: nowrap; 
+            transition: 0.3s; display: flex; align-items: center; gap: 6px; backdrop-filter: blur(5px);
+        }
+        .tool-btn:hover { background: var(--accent); border-color: var(--accent); transform: translateY(-2px); }
+        .tool-btn.active { background: var(--accent); border-color: var(--accent); color: white; font-weight: bold; box-shadow: 0 0 10px rgba(168, 85, 247, 0.5); }
+
+        .input-box { background: rgba(36, 26, 51, 0.8); backdrop-filter: blur(15px); border-radius: 16px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); transition: 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
+        .input-box:focus-within { border-color: var(--accent); box-shadow: 0 0 20px rgba(168, 85, 247, 0.4); }
+        
+        textarea { flex: 1; background: transparent; border: none; color: var(--text-main); font-size: 15px; resize: none; max-height: 100px; outline: none; font-family: inherit; padding: 4px 0; }
+        textarea::placeholder { color: var(--text-muted); }
+        input[type="text"] { flex: 1; background: transparent; border: none; color: var(--text-main); font-size: 15px; outline: none; font-family: inherit; }
+        select { background: rgba(0,0,0,0.3); color: var(--text-main); border: 1px solid var(--border); padding: 6px; border-radius: 8px; outline: none; font-family: inherit; font-size: 13px; }
+        
+        .send-btn { background: var(--accent); color: white; border: none; width: 38px; height: 38px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.3s; box-shadow: 0 0 10px rgba(168, 85, 247, 0.4); flex-shrink: 0; }
+        .send-btn:hover { background: #9333ea; transform: scale(1.05); }
+        .send-btn:disabled { background: #4c3a66; cursor: not-allowed; box-shadow: none; transform: none; }
+
+        .typing-dots { display: flex; gap: 5px; align-items: center; height: 24px; padding: 0 5px; position: relative; z-index: 1; }
+        .dot { width: 7px; height: 7px; background: var(--accent); border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; }
+        .dot:nth-child(1) { animation-delay: -0.32s; } .dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+        ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+        /* ============ TAMPILAN MOBILE (FIX TOTAL) ============ */
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column; /* Biar header di atas, chat di bawah */
+            }
+            .sidebar { 
+                position: fixed; left: 0; top: 0; bottom: 0; 
+                transform: translateX(-100%); 
+                box-shadow: 2px 0 15px rgba(0,0,0,0.8);
+            }
+            .sidebar.open { 
+                transform: translateX(0); 
+            }
+            .header-mobile { 
+                display: flex; /* Munculin header di atas */
+                position: relative; /* Nempel di atas, gak nabrak */
+                flex-shrink: 0;
+            }
+            .main-chat { 
+                height: calc(100vh - 60px); /* Sisa layar buat chat */
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Mobile -->
+    <div class="header-mobile">
+        <button class="menu-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+        <span class="header-title">Ishimi 大</span>
+    </div>
+
+    <video id="bg-video" autoplay loop muted playsinline>
+        <source src="https://www.image2url.com/r2/default/videos/1794378865113-2c960894-f24d-4520-8f8b-a9ac5f8541cc.mp4" type="video/mp4">
+    </video>
+    <div class="bg-overlay"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <button class="new-chat-btn" onclick="buatObrolanBaru()"><span>+</span> Obrolan Baru</button>
+        <div class="sidebar-history" id="historyList"></div>
+        <div class="sidebar-footer">Engine: Kyzzz API<br>Developer: JriiRyzz</div>
+    </aside>
+
+    <!-- Main Chat -->
+    <main class="main-chat">
+        <div class="chat-container" id="chatContainer"></div>
+
+        <div class="input-container">
+            <div class="tools-bar" id="aiBar">
+                <button class="tool-btn active" onclick="changeAIMode('ishimi', this)">💀 Ishimi 大</button>
+                <button class="tool-btn" onclick="changeAIMode('chatgpt', this)">🤖 ChatGPT</button>
+                <button class="tool-btn" onclick="changeAIMode('claude', this)">📝 Claude</button>
+                <button class="tool-btn" onclick="changeAIMode('deepseek', this)">🐋 DeepSeek</button>
+                <button class="tool-btn" onclick="changeAIMode('qwen', this)">🌀 Qwen</button>
+            </div>
+
+            <div class="tools-bar">
+                <button class="tool-btn" onclick="changeToolMode('tiktok', this)" id="btn-tiktok">📱 TikTok</button>
+                <button class="tool-btn" onclick="changeToolMode('ig', this)" id="btn-ig">📸 Instagram</button>
+                <button class="tool-btn" onclick="changeToolMode('yt', this)" id="btn-yt">▶️ YouTube</button>
+                <button class="tool-btn" onclick="changeToolMode('hd', this)" id="btn-hd">🎬 HD Video</button>
+            </div>
+
+            <div class="input-box" id="dynamicInputBox">
+                <textarea id="userInput" placeholder="Ketik pesan..." rows="1" oninput="autoResize(this)" onkeydown="handleEnter(event)"></textarea>
+            </div>
+            
+            <div style="text-align: center; font-size: 10px; color: var(--text-muted); margin-top: 8px;" id="footerText">
+                Ishimi 大 dapat membuat kesalahan. Pertimbangkan untuk memverifikasi informasi penting.
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // ... (Logika JS lu tetep sama persis, gak gua sentuh) ...
+        const chatContainer = document.getElementById('chatContainer');
+        const inputBox = document.getElementById('dynamicInputBox');
+        const footerText = document.getElementById('footerText');
+        const historyList = document.getElementById('historyList');
+        let isTyping = false;
+        
+        const API_KEY = "kyzz119190745866";
+        const FOTO_AI = "https://cdn.phototourl.com/member/2026-11-11-236aba0a-22c1-49fd-878c-9d2c4a9b3c6d.webp";
+
+        let currentAIModel = "ishimi"; 
+        let currentToolMode = "chat"; 
+        let selectedHDResolution = "1080"; 
+        let selectedVideoBase64 = null;
+
+        let chatThreads = {};
+        let activeThreadId = "";
+
+        function initApp() { buatObrolanBaru(); }
+
+        function buatObrolanBaru() {
+            const id = "thread-" + Date.now();
+            let aiName = "Ishimi 大";
+            if(currentAIModel === 'chatgpt') aiName = 'ChatGPT';
+            if(currentAIModel === 'claude') aiName = 'Claude';
+            if(currentAIModel === 'deepseek') aiName = 'DeepSeek';
+            if(currentAIModel === 'qwen') aiName = 'Qwen';
+
+            chatThreads[id] = {
+                ai: currentAIModel,
+                title: `Obrolan Baru (${aiName})`,
+                messages: [{ sender: 'ai', text: `Halo! Ini sesi baru untuk ${aiName}. Ada yang bisa gua bantu?` }]
+            };
+            activeThreadId = id;
+            renderHistoryList();
+            renderChat();
+            document.getElementById('sidebar').classList.remove('open');
+        }
+
+        function pilihObrolan(id) {
+            activeThreadId = id;
+            currentAIModel = chatThreads[id].ai; 
+            document.querySelectorAll('#aiBar .tool-btn').forEach(b => b.classList.remove('active'));
+            let index = ['ishimi', 'chatgpt', 'claude', 'deepseek', 'qwen'].indexOf(currentAIModel);
+            let btns = document.querySelectorAll('#aiBar .tool-btn');
+            if(index !== -1) btns[index].classList.add('active');
+            renderHistoryList();
+            renderChat();
+            document.getElementById('sidebar').classList.remove('open');
+        }
+
+        function renderHistoryList() {
+            historyList.innerHTML = '';
+            const sortedKeys = Object.keys(chatThreads).sort((a, b) => parseInt(b.split('-')[1]) - parseInt(a.split('-')[1]));
+            sortedKeys.forEach(id => {
+                let thread = chatThreads[id];
+                let div = document.createElement('div');
+                div.className = `history-item ${id === activeThreadId ? 'active' : ''}`;
+                div.innerText = `[${thread.ai.toUpperCase()}] ${thread.title}`;
+                div.onclick = () => pilihObrolan(id);
+                historyList.appendChild(div);
+            });
+        }
+
+        function renderChat() {
+            chatContainer.innerHTML = '';
+            chatThreads[activeThreadId].messages.forEach(msg => addMessageToDOM(msg.sender, msg.text));
+            scrollToBottom();
+        }
+
+        function renderInputArea() {
+            inputBox.innerHTML = '';
+            if (currentToolMode === 'chat') {
+                footerText.innerText = `${currentAIModel.toUpperCase()} dapat membuat kesalahan.`;
+                inputBox.innerHTML = `
+                    <textarea id="userInput" placeholder="Ketik pesan..." rows="1" oninput="autoResize(this)" onkeydown="handleEnter(event)"></textarea>
+                    <button class="send-btn" onclick="prosesChatAI()"><svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" height="18" width="18"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
+                `;
+                document.getElementById('userInput').focus();
+            } 
+            else if (currentToolMode === 'hd') {
+                footerText.innerText = "Masukkan URL Video atau Upload.";
+                inputBox.innerHTML = `
+                    <input type="text" id="urlInput" placeholder="Paste URL video..." />
+                    <select id="resSelect" onchange="selectedHDResolution = this.value">
+                        <option value="4k">4K</option>
+                        <option value="1080" selected>1080p</option>
+                        <option value="720">720p</option>
+                    </select>
+                    <input type="file" id="videoUpload" accept="video/mp4" style="display:none;" onchange="handleVideoUpload(event)" />
+                    <button class="tool-btn" onclick="document.getElementById('videoUpload').click()">📁</button>
+                    <button class="send-btn" onclick="prosesHDVideo()">🚀</button>
+                `;
+                document.getElementById('urlInput').focus();
+            }
+            else {
+                let placeholder = `Paste link ${currentToolMode.toUpperCase()}...`;
+                footerText.innerText = `Mode Download ${currentToolMode.toUpperCase()}.`;
+                inputBox.innerHTML = `
+                    <input type="text" id="urlInput" placeholder="${placeholder}" onkeydown="handleEnterDownload(event)" />
+                    <button class="send-btn" onclick="prosesDownloader()"><svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" height="18" width="18"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
+                `;
+                document.getElementById('urlInput').focus();
+            }
+        }
+
+        function changeAIMode(model, btn) {
+            currentAIModel = model;
+            currentToolMode = 'chat'; 
+            if(activeThreadId) { chatThreads[activeThreadId].ai = model; renderHistoryList(); }
+            document.querySelectorAll('#aiBar .tool-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.querySelectorAll('.tools-bar:nth-child(2) .tool-btn').forEach(b => b.classList.remove('active'));
+            renderInputArea();
+        }
+
+        function changeToolMode(tool, btn) {
+            currentToolMode = tool;
+            document.querySelectorAll('.tools-bar:nth-child(2) .tool-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.querySelectorAll('#aiBar .tool-btn').forEach(b => b.classList.remove('active'));
+            renderInputArea();
+        }
+
+        function handleVideoUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    selectedVideoBase64 = e.target.result;
+                    document.getElementById('urlInput').value = "Video siap";
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function autoResize(textarea) { textarea.style.height = 'auto'; textarea.style.height = (textarea.scrollHeight) + 'px'; }
+        function handleEnter(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); prosesChatAI(); } }
+        function 
